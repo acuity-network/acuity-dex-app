@@ -3,6 +3,8 @@
 use dioxus::prelude::*;
 use dioxus_logger::tracing::{info, Level};
 
+use alloy::providers::{Provider, ProviderBuilder, WsConnect};
+
 #[derive(Clone, Routable, Debug, PartialEq)]
 enum Route {
     #[route("/")]
@@ -32,21 +34,23 @@ fn Blog(id: i32) -> Element {
     }
 }
 
+async fn connect() {
+    // Set up the WS transport which is consumed by the RPC client.
+    let rpc_url = "ws://127.0.0.1:8545";
+
+    // Create the provider.
+    info!("connecting");
+    let ws = WsConnect::new(rpc_url);
+    let provider = ProviderBuilder::new().on_ws(ws).await.unwrap();
+    info!("connected");
+}
+
 #[component]
 fn Home() -> Element {
-    let mut count = use_signal(|| 0);
+    let mut future = use_resource(|| connect());
 
-    rsx! {
-        Link {
-            to: Route::Blog {
-                id: count()
-            },
-            "Go to blog"
-        }
-        div {
-            h1 { "High-Five counter: {count}" }
-            button { onclick: move |_| count += 1, "Up high!" }
-            button { onclick: move |_| count -= 1, "Down below!" }
-        }
+    match &*future.read_unchecked() {
+        Some(()) => rsx! { div { "Dogs loaded" } },
+        None => rsx! { div { "Loading dogs..." } },
     }
 }
