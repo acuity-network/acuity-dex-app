@@ -49,8 +49,18 @@ async fn connect() {
 fn Home() -> Element {
     let mut future = use_resource(|| connect());
 
-    match &*future.read_unchecked() {
-        Some(()) => rsx! { div { "Dogs loaded" } },
-        None => rsx! { div { "Loading dogs..." } },
+    rsx! {
+        div {
+            class: "navbar bg-base-100",
+            a {
+                class: "btn btn-ghost text-xl",
+                "Acuity DEX",
+            }
+        }
     }
+
+    // match &*future.read_unchecked() {
+    //     Some(()) => rsx! { div { "Dogs loaded" } },
+    //     None => rsx! { div { "Loading dogs..." } },
+    // }
 }

@@ -1,0 +1,7 @@
+{
+  "name": "acuity-dex-app",
+  "type": "module",
+  "devDependencies": {
+    "daisyui": "^4.12.14"
+  }
+}
