@@ -5,12 +5,12 @@ use dioxus_logger::tracing::{info, Level};
 
 use alloy::providers::{Provider, ProviderBuilder, WsConnect};
 
+use futures_util::StreamExt;
+
 #[derive(Clone, Routable, Debug, PartialEq)]
 enum Route {
     #[route("/")]
     Home {},
-    #[route("/blog/:id")]
-    Blog { id: i32 },
 }
 
 fn main() {
@@ -27,28 +27,32 @@ fn App() -> Element {
 }
 
 #[component]
-fn Blog(id: i32) -> Element {
-    rsx! {
-        Link { to: Route::Home {}, "Go to counter" }
-        "Blog post {id}"
-    }
-}
+fn BlockNumber() -> Element {
+    let block_number = use_signal(|| 0u64);
+    let block_task = use_coroutine(|rx: UnboundedReceiver<u64>| {
+        let mut block_number = block_number.to_owned();
+        async move {
+            // Set up the WS transport which is consumed by the RPC client.
+            let rpc_url = "ws://127.0.0.1:8545";
 
-async fn connect() {
-    // Set up the WS transport which is consumed by the RPC client.
-    let rpc_url = "ws://127.0.0.1:8545";
+            // Create the provider.
+            info!("connecting");
+            let ws = WsConnect::new(rpc_url);
+            let provider = ProviderBuilder::new().on_ws(ws).await.unwrap();
+            info!("connected");
+            let sub = provider.subscribe_blocks().await.unwrap();
+            let mut stream = sub.into_stream();
+            while let Some(block) = stream.next().await {
+                block_number.set(block.header.number);
+            }
+        }
+    });
 
-    // Create the provider.
-    info!("connecting");
-    let ws = WsConnect::new(rpc_url);
-    let provider = ProviderBuilder::new().on_ws(ws).await.unwrap();
-    info!("connected");
+    rsx! { "{block_number}" }
 }
 
 #[component]
 fn Home() -> Element {
-    let mut future = use_resource(|| connect());
-
     rsx! {
         div {
             class: "navbar bg-base-100",
@@ -56,11 +60,9 @@ fn Home() -> Element {
                 class: "btn btn-ghost text-xl",
                 "Acuity DEX",
             }
+        },
+        div {
+            BlockNumber {}
         }
     }
-
-    // match &*future.read_unchecked() {
-    //     Some(()) => rsx! { div { "Dogs loaded" } },
-    //     None => rsx! { div { "Loading dogs..." } },
-    // }
 }

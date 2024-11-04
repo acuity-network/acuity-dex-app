@@ -10,6 +10,7 @@ dependencies = [
  "alloy-transport",
  "dioxus",
  "dioxus-logger",
+ "futures-util",
  "getrandom",
 ]
 
