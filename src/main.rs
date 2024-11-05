@@ -13,6 +13,8 @@ enum Route {
     Home {},
 }
 
+struct BlockNumberState(u64);
+
 fn main() {
     // Init logger
     dioxus_logger::init(Level::INFO).expect("failed to init logger");
@@ -20,7 +22,29 @@ fn main() {
     launch(App);
 }
 
+enum EvmCommand {}
+
+async fn evm_service(rx: UnboundedReceiver<EvmCommand>) {
+    let mut block_number = use_context::<Signal<BlockNumberState>>();
+    // Set up the WS transport which is consumed by the RPC client.
+    let rpc_url = "ws://127.0.0.1:8545";
+    // Create the provider.
+    info!("connecting");
+    let ws = WsConnect::new(rpc_url);
+    let provider = ProviderBuilder::new().on_ws(ws).await.unwrap();
+    // do stuff
+    let sub = provider.subscribe_blocks().await.unwrap();
+    let mut stream = sub.into_stream();
+    while let Some(block) = stream.next().await {
+        block_number.set(BlockNumberState(block.header.number));
+    }
+}
+
 fn App() -> Element {
+    use_context_provider(|| Signal::new(BlockNumberState(0)));
+
+    let evm = use_coroutine(evm_service);
+
     rsx! {
         Router::<Route> {}
     }
@@ -28,25 +52,7 @@ fn App() -> Element {
 
 #[component]
 fn BlockNumber() -> Element {
-    let block_number = use_signal(|| 0u64);
-    let block_task = use_coroutine(|rx: UnboundedReceiver<u64>| {
-        let mut block_number = block_number.to_owned();
-        async move {
-            // Set up the WS transport which is consumed by the RPC client.
-            let rpc_url = "ws://127.0.0.1:8545";
-
-            // Create the provider.
-            info!("connecting");
-            let ws = WsConnect::new(rpc_url);
-            let provider = ProviderBuilder::new().on_ws(ws).await.unwrap();
-            info!("connected");
-            let sub = provider.subscribe_blocks().await.unwrap();
-            let mut stream = sub.into_stream();
-            while let Some(block) = stream.next().await {
-                block_number.set(block.header.number);
-            }
-        }
-    });
+    let block_number = use_context::<Signal<BlockNumberState>>().read().0;
 
     rsx! { "{block_number}" }
 }
