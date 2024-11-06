@@ -3,7 +3,11 @@
 use dioxus::prelude::*;
 use dioxus_logger::tracing::{info, Level};
 
-use alloy::providers::{Provider, ProviderBuilder, WsConnect};
+use alloy::{
+    primitives::address,
+    providers::{Provider, ProviderBuilder, WsConnect},
+    sol,
+};
 
 use futures_util::StreamExt;
 
@@ -24,6 +28,13 @@ fn main() {
 
 enum EvmCommand {}
 
+sol!(
+    #[derive(Debug)]
+    #[sol(rpc)]
+    AcuityDexIntrachain,
+    "abi/AcuityDexIntrachain.json"
+);
+
 async fn evm_service(rx: UnboundedReceiver<EvmCommand>) {
     let mut block_number = use_context::<Signal<BlockNumberState>>();
     // Set up the WS transport which is consumed by the RPC client.
@@ -32,6 +43,11 @@ async fn evm_service(rx: UnboundedReceiver<EvmCommand>) {
     info!("connecting");
     let ws = WsConnect::new(rpc_url);
     let provider = ProviderBuilder::new().on_ws(ws).await.unwrap();
+    // Create a contract instance.
+    let contract = AcuityDexIntrachain::new(
+        address!("5FbDB2315678afecb367f032d93F642f64180aa3"),
+        provider.clone(),
+    );
     // do stuff
     let sub = provider.subscribe_blocks().await.unwrap();
     let mut stream = sub.into_stream();
