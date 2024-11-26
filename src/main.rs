@@ -52,7 +52,7 @@ async fn evm_service(rx: UnboundedReceiver<EvmCommand>) {
     let sub = provider.subscribe_blocks().await.unwrap();
     let mut stream = sub.into_stream();
     while let Some(block) = stream.next().await {
-        block_number.set(BlockNumberState(block.header.number));
+        block_number.set(BlockNumberState(block.number));
     }
 }
 
